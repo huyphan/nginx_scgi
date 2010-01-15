@@ -1,0 +1,100 @@
+Introduction
+============
+
+mod_scgi is an implementation of the
+`Simple Common Gateway Interface <http://python.ca/scgi/protocol.txt>`_
+for the `Nginx <http://nginx.net>`_ web server.
+
+Nginx is a fast asynchronous HTTP server.
+
+
+Installation
+============
+
+mod_scgi has been tested with Nginx 0.5.35.
+
+Download the Nginx sources from http://nginx.net/ and unpack it.
+
+The sources of mod_scgi can be downloaded from a
+`Mercurial <http://www.selenic.com/mercurial/wiki/>`_ repository:
+http://hg.mperillo.ath.cx/nginx/mod_scgi/
+
+At the moment there is no stable release, so you need to download the
+latest revision (*tip*) or the latest *tag*.
+
+The *tip* can be downloaded via the Mercurial web interface:
+http://hg.mperillo.ath.cx/nginx/mod_scgi/archive/tip.tar.gz
+
+or cloning the repository: ::
+
+  hg clone http://hg.mperillo.ath.cx/nginx/mod_scgi/
+
+The latest *tag* can be found from:
+http://hg.mperillo.ath.cx/nginx/mod_scgi/tags
+
+To build Nginx, change to the directory which contains the Nginx
+sources, and run the configuration script making sure to add the path
+to the mod_scgi sources using the --add-module option.
+It is recommended to enable debugging. ::
+
+  $ ./configure --add-module=/path/to/mod_scgi/ --with-debug
+
+Nginx will use as default prefix path the directory
+`/usr/local/nginx`.
+
+Now you can build and install the software: ::
+
+  $ make
+
+and as root: ::
+
+  $ make install
+
+
+Notes
+=====
+
+This module is still under development.
+
+The module is mainly an adaptation of the existing
+`ngx_http_fastcgi_module`, with some code (the HTTP status line and
+headers parsing) from the `ngx_http_proxy_module`.
+
+
+In the current version `SCRIPT_NAME` and `PATH_INFO` are not defined.
+
+The current implementation also only supports SCGI response that
+conforms to HTTP 1.0; this means that the response must start with an
+HTTP 1.x status line (like `HTTP 1.0 200 OK`) and not by using the
+`Status` header.
+
+
+BUGS
+====
+
+This implementation is not fully conform to the SCGI protocol.
+
+The SCGI specification states: ::
+
+  Duplicate names are not allowed in the headers
+
+however Nginx does not combines multiple headers.
+
+
+Example
+=======
+
+Here is a sample configuration: ::
+
+    location  /scgi {
+        scgi_pass   127.0.0.1:4000;
+
+        include     conf/scgi_vars;
+        scgi_var    SCRIPT_NAME  /scgi;
+        scgi_var    PATH_INFO    /xxx;
+    }
+
+note the inclusion of the `conf/scgi_vars` file.
+
+This file must be copied to the nginx `$prefix/conf` directory by
+hand.

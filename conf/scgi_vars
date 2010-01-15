@@ -1,0 +1,20 @@
+
+## scgi_var  CONTENT_LENGTH     $content_length;
+scgi_var  QUERY_STRING       $query_string;
+scgi_var  REQUEST_METHOD     $request_method;
+scgi_var  CONTENT_TYPE       $content_type;
+
+## scgi_var  SCRIPT_NAME        $fastcgi_script_name;
+scgi_var  REQUEST_URI        $request_uri;
+scgi_var  DOCUMENT_URI       $document_uri;
+scgi_var  DOCUMENT_ROOT      $document_root;
+scgi_var  SERVER_PROTOCOL    $server_protocol;
+
+scgi_var  SCGI               1;
+scgi_var  SERVER_SOFTWARE    nginx/$nginx_version;
+
+scgi_var  REMOTE_ADDR        $remote_addr;
+scgi_var  REMOTE_PORT        $remote_port;
+scgi_var  SERVER_ADDR        $server_addr;
+scgi_var  SERVER_PORT        $server_port;
+scgi_var  SERVER_NAME        $server_name;
