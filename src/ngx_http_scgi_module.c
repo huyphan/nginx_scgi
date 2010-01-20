@@ -300,12 +300,6 @@ static ngx_str_t  ngx_http_scgi_hide_headers[] = {
     ngx_null_string
 };
 
-
-static ngx_path_init_t  ngx_http_scgi_temp_path = {
-    ngx_string(NGX_HTTP_SCGI_TEMP_PATH), { 1, 2, 0 }
-};
-
-
 static ngx_int_t
 ngx_http_scgi_handler(ngx_http_request_t *r)
 {
@@ -371,9 +365,9 @@ static ngx_int_t
 ngx_http_scgi_create_request(ngx_http_request_t *r)
 {
     u_char                        ch;
-    size_t                        len, size, key_len, val_len;
+    size_t                        len, size, key_len, val_len, content_length_s, content_length;
     ngx_uint_t                    i, n;
-    ngx_buf_t                    *b;
+    ngx_buf_t                    *b, *temp;
     ngx_chain_t                  *cl, *body;
     ngx_list_part_t              *part;
     ngx_table_elt_t              *header;
@@ -384,7 +378,18 @@ ngx_http_scgi_create_request(ngx_http_request_t *r)
     ngx_http_script_len_code_pt   lcode;
 
     /* len of the Content-Length header */
-    len = sizeof("CONTENT_LENGTH") + sizeof("4294967296");
+
+    if (r->headers_in.content_length_n == -1)
+        content_length = 0;
+    else 
+        content_length = r->headers_in.content_length_n;  
+
+    temp = ngx_create_temp_buf(r->pool, 10);    
+    temp->last = ngx_snprintf(temp->last, 10, "%ui",
+                               content_length);        
+    content_length_s = temp->last - temp->start;
+
+    len = sizeof("CONTENT_LENGTH") + content_length_s + 1;
 
     slcf = ngx_http_get_module_loc_conf(r, ngx_http_scgi_module);
 
@@ -466,7 +471,7 @@ ngx_http_scgi_create_request(ngx_http_request_t *r)
                        sizeof("CONTENT_LENGTH"));
 
     b->last = ngx_snprintf(b->last, 10, "%ui",
-                           r->headers_in.content_length_n);
+                           content_length);
     *b->last++ = (u_char) 0;
 
     if (slcf->vars_len) {
@@ -1245,14 +1250,11 @@ ngx_http_scgi_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
                                        |NGX_HTTP_UPSTREAM_FT_OFF;
     }
 
-    if (ngx_conf_merge_path_value(cf, &conf->upstream.temp_path,
+    ngx_conf_merge_path_value(conf->upstream.temp_path,
                               prev->upstream.temp_path,
-                              &ngx_http_scgi_temp_path)
-        != NGX_OK)
-    {
-        return NGX_CONF_ERROR;
-    }
-
+                              NGX_HTTP_SCGI_TEMP_PATH, 1, 2, 0,
+                              ngx_garbage_collector_temp_handler, cf);
+    
     ngx_conf_merge_value(conf->upstream.pass_request_headers,
                               prev->upstream.pass_request_headers, 1);
     ngx_conf_merge_value(conf->upstream.pass_request_body,
