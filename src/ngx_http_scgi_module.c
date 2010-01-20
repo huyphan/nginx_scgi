@@ -198,7 +198,7 @@ static ngx_command_t  ngx_http_scgi_commands[] = {
       ngx_conf_set_path_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_scgi_loc_conf_t, upstream.temp_path),
-      (void *) ngx_garbage_collector_temp_handler },
+      NULL },
 
     { ngx_string("scgi_max_temp_file_size"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
@@ -301,6 +301,11 @@ static ngx_str_t  ngx_http_scgi_hide_headers[] = {
 };
 
 
+static ngx_path_init_t  ngx_http_scgi_temp_path = {
+    ngx_string(NGX_HTTP_SCGI_TEMP_PATH), { 1, 2, 0 }
+};
+
+
 static ngx_int_t
 ngx_http_scgi_handler(ngx_http_request_t *r)
 {
@@ -321,6 +326,9 @@ ngx_http_scgi_handler(ngx_http_request_t *r)
     if (u == NULL) {
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
+
+    u->schema.len = sizeof("scgi://") - 1;
+    u->schema.data = (u_char *) "scgi://";
 
     u->peer.log = r->connection->log;
     u->peer.log_error = NGX_ERROR_ERR;
@@ -875,7 +883,7 @@ ngx_http_scgi_process_header(ngx_http_request_t *r)
 
     for ( ;;  ) {
 
-        rc = ngx_http_parse_header_line(r, &r->upstream->buffer);
+        rc = ngx_http_parse_header_line(r, &r->upstream->buffer, 1);
 
         if (rc == NGX_OK) {
 
@@ -1237,10 +1245,13 @@ ngx_http_scgi_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
                                        |NGX_HTTP_UPSTREAM_FT_OFF;
     }
 
-    ngx_conf_merge_path_value(conf->upstream.temp_path,
+    if (ngx_conf_merge_path_value(cf, &conf->upstream.temp_path,
                               prev->upstream.temp_path,
-                              NGX_HTTP_SCGI_TEMP_PATH, 1, 2, 0,
-                              ngx_garbage_collector_temp_handler, cf);
+                              &ngx_http_scgi_temp_path)
+        != NGX_OK)
+    {
+        return NGX_CONF_ERROR;
+    }
 
     ngx_conf_merge_value(conf->upstream.pass_request_headers,
                               prev->upstream.pass_request_headers, 1);
@@ -1358,7 +1369,6 @@ peers:
 
     if (conf->upstream.upstream == NULL) {
         conf->upstream.upstream = prev->upstream.upstream;
-        conf->upstream.schema = prev->upstream.schema;
     }
 
     if (conf->vars_source == NULL) {
@@ -1547,7 +1557,7 @@ ngx_http_scgi_pass(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_str_t                   *value;
     ngx_http_core_loc_conf_t    *clcf;
 
-    if (lcf->upstream.schema.len) {
+    if (lcf->upstream.upstream) {
         return "is duplicate";
     }
 
@@ -1563,14 +1573,9 @@ ngx_http_scgi_pass(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
-    lcf->upstream.schema.len = sizeof("scgi://") - 1;
-    lcf->upstream.schema.data = (u_char *) "scgi://";
-
     clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
 
     clcf->handler = ngx_http_scgi_handler;
-
-    lcf->upstream.location = clcf->name;
 
     if (clcf->name.data[clcf->name.len - 1] == '/') {
         clcf->auto_redirect = 1;
